@@ -1,35 +1,37 @@
 module Main exposing (Flags, Model, Msg, main)
 
 import Browser
-import Html exposing (Html, br, div, node, text)
+import Browser.Events
+import Html exposing (Html, text)
 import Html.Attributes exposing (style)
+import Json.Decode
 import List.Extra
 import Svg exposing (Svg, text_)
 import Svg.Attributes exposing (alignmentBaseline, textAnchor, x, y)
 import Theme exposing (Pentomino)
 
 
-playingFieldWidth : Int
+playingFieldWidth : number
 playingFieldWidth =
     10
 
 
-playingFieldHeight : Int
+playingFieldHeight : number
 playingFieldHeight =
     20
 
 
-rightPaneWidth : Int
+rightPaneWidth : number
 rightPaneWidth =
     8
 
 
-screenHeight : Int
+screenHeight : number
 screenHeight =
     1 + playingFieldHeight + 1
 
 
-screenWidth : Int
+screenWidth : number
 screenWidth =
     1 + playingFieldWidth + 1 + rightPaneWidth + 1
 
@@ -53,44 +55,49 @@ type alias LostModel =
     {}
 
 
-type alias Msg =
-    ()
+type Msg
+    = Enter
+    | Space
 
 
 main : Program Flags Model Msg
 main =
     Browser.element
-        { init = init
+        { init = \flags -> ( init flags, Cmd.none )
         , view = view
-        , update = update
+        , update = \msg model -> ( update msg model, Cmd.none )
         , subscriptions = subscriptions
         }
 
 
-init : Flags -> ( Model, Cmd Msg )
+init : Flags -> Model
 init _ =
-    ( Welcome
-    , Cmd.none
-    )
+    Welcome
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : Msg -> Model -> Model
 update msg model =
-    case msg of
+    case ( msg, model ) of
+        ( Enter, Welcome ) ->
+            Playing { pause = False }
+
+        ( Space, Playing playingModel ) ->
+            Playing { playingModel | pause = not playingModel.pause }
+
         _ ->
-            ( model, Cmd.none )
+            model
 
 
 view : Model -> Html Msg
 view model =
-    div
-        [ style "width" "100vw"
-        , style "height" "100vh"
-        , style "display" "flex"
-        , style "align-items" "center"
-        , style "justify-content" "center"
+    Html.div
+        [ Html.Attributes.style "width" "100vw"
+        , Html.Attributes.style "height" "100vh"
+        , Html.Attributes.style "display" "flex"
+        , Html.Attributes.style "align-items" "center"
+        , Html.Attributes.style "justify-content" "center"
         ]
-        [ node "style" [] [ text <| """
+        [ Html.node "style" [] [ Html.text <| """
             body {
                 margin: 0;
                 background: """ ++ Theme.background ++ """;
@@ -125,12 +132,19 @@ view model =
                     Welcome ->
                         viewWelcome
 
-                    Playing _ ->
-                        Debug.todo "branch 'Playing _' not implemented"
+                    Playing playingModel ->
+                        viewPlaying playingModel
 
-                    Lost _ ->
-                        Debug.todo "branch 'Lost _' not implemented"
+                    Lost lostModel ->
+                        viewLost lostModel
                 )
+          , Theme.coloredPentominos
+                |> List.reverse
+                |> List.head
+                |> Maybe.map List.singleton
+                |> Maybe.withDefault []
+                |> List.map (\( color, pentomino ) -> viewPentomino color 1 1 pentomino)
+                |> Svg.g []
           ]
             |> Svg.svg
                 [ [ 0
@@ -151,12 +165,12 @@ view model =
         ]
 
 
-coordinate : Int -> String
+coordinate : Float -> String
 coordinate c =
-    String.fromInt (c * 100)
+    String.fromFloat (c * 100)
 
 
-line : String -> Int -> Int -> Int -> Int -> Svg msg
+line : String -> Float -> Float -> Float -> Float -> Svg msg
 line color x1 x2 y1 y2 =
     Svg.line
         [ Svg.Attributes.stroke color
@@ -168,7 +182,7 @@ line color x1 x2 y1 y2 =
         []
 
 
-rect : String -> Int -> Int -> Int -> Int -> Svg msg
+rect : String -> Float -> Float -> Float -> Float -> Svg msg
 rect color x y width height =
     Svg.rect
         [ Svg.Attributes.fill color
@@ -185,10 +199,39 @@ viewWelcome =
     [ text_
         [ textAnchor "middle"
         , alignmentBaseline "middle"
-        , x <| coordinate (screenWidth // 2)
-        , y <| coordinate (screenHeight // 2)
+        , x <| coordinate (screenWidth / 2)
+        , y <| coordinate (screenHeight / 2)
         ]
         [ text "Welcome! Press <Enter> to begin!" ]
+    ]
+
+
+viewPlaying : PlayingModel -> List (Svg msg)
+viewPlaying model =
+    if model.pause then
+        [ text_
+            [ textAnchor "middle"
+            , alignmentBaseline "middle"
+            , x <| coordinate (screenWidth / 2)
+            , y <| coordinate (screenHeight / 2)
+            ]
+            [ text "Paused! Press <Space> to resume!"
+            ]
+        ]
+
+    else
+        []
+
+
+viewLost : LostModel -> List (Svg msg)
+viewLost _ =
+    [ text_
+        [ textAnchor "middle"
+        , alignmentBaseline "middle"
+        , x <| coordinate (screenWidth / 2)
+        , y <| coordinate (screenHeight / 2)
+        ]
+        [ text "Lost!" ]
     ]
 
 
@@ -199,33 +242,50 @@ rotateCW pentomino =
         |> List.map List.reverse
 
 
-viewPentomino : String -> Pentomino -> List (Svg msg)
-viewPentomino color pentomino =
+viewPentomino : String -> Float -> Float -> Pentomino -> Svg msg
+viewPentomino color dx dy pentomino =
     let
-        viewRow : Int -> List Bool -> Svg.Svg msg
+        viewRow : Int -> List Bool -> List (Svg msg)
         viewRow y row =
             row
-                |> List.indexedMap (viewCell y)
-                |> Svg.g []
+                |> List.indexedMap (viewCell (toFloat y))
+                |> List.concat
 
-        viewCell : Int -> Int -> Bool -> Svg.Svg msg
+        border : Float
+        border =
+            0.05
+
+        viewCell : Float -> Int -> Bool -> List (Svg msg)
         viewCell y x cell =
             if cell then
-                Svg.rect
-                    [ Svg.Attributes.fill color
-                    , Svg.Attributes.width "1"
-                    , Svg.Attributes.height "1"
-                    , Svg.Attributes.x (String.fromInt x)
-                    , Svg.Attributes.y (String.fromInt y)
-                    ]
-                    []
+                [ rect "gray" (toFloat x + dx) (y + dy) 1 1
+                , rect color (toFloat x + dx + border) (y + dy + border) (1 - border * 2) (1 - border * 2)
+                ]
 
             else
-                Svg.g [] []
+                []
     in
-    List.indexedMap viewRow pentomino
+    Svg.g [] <| List.concat <| List.indexedMap viewRow pentomino
 
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.none
+    Browser.Events.onKeyPress
+        (Json.Decode.field "key" Json.Decode.string
+            |> Json.Decode.andThen
+                (\key ->
+                    case key of
+                        "Enter" ->
+                            Json.Decode.succeed Enter
+
+                        " " ->
+                            Json.Decode.succeed Space
+
+                        _ ->
+                            let
+                                _ =
+                                    Debug.log "Ignored" key
+                            in
+                            Json.Decode.fail "Ignored"
+                )
+        )

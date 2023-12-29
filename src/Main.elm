@@ -11,6 +11,7 @@ import Random.List
 import Svg exposing (Svg, text_)
 import Svg.Attributes exposing (alignmentBaseline, textAnchor, x, y)
 import Theme
+import Time
 
 
 playingFieldWidth : number
@@ -50,6 +51,7 @@ type Model
 
 type alias PlayingModel =
     { pause : Bool
+    , score : Int
     , currentPiece : ( Int, Int, Pentomino )
     , nextPiece : Pentomino
     , queue : List Pentomino
@@ -59,6 +61,7 @@ type alias PlayingModel =
 
 type alias LostModel =
     { nextPiece : Pentomino
+    , score : Int
     , grid : List (List String)
     }
 
@@ -67,6 +70,7 @@ type Msg
     = Enter
     | Space
     | Generated PlayingModel
+    | Tick Time.Posix
 
 
 main : Program Flags Model Msg
@@ -116,6 +120,7 @@ playingModelGenerator =
                         |> Maybe.withDefault 1
             in
             { pause = False
+            , score = 0
             , currentPiece =
                 ( (playingFieldWidth - currentPieceWidth // 2)
                     // 2
@@ -137,14 +142,14 @@ playingModelGenerator =
                             ( one, two, tail )
 
                         _ ->
-                            horribleHackPleaseForgive ()
+                            horribleHackPleaseForgiveMe ()
                 )
         )
 
 
-horribleHackPleaseForgive : () -> a
-horribleHackPleaseForgive _ =
-    horribleHackPleaseForgive ()
+horribleHackPleaseForgiveMe : () -> a
+horribleHackPleaseForgiveMe _ =
+    horribleHackPleaseForgiveMe ()
 
 
 view : Model -> Html Msg
@@ -420,23 +425,51 @@ viewCell color x y cell =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Browser.Events.onKeyPress
-        (Json.Decode.field "key" Json.Decode.string
-            |> Json.Decode.andThen
-                (\key ->
-                    case key of
-                        "Enter" ->
-                            Json.Decode.succeed Enter
+subscriptions model =
+    Sub.batch
+        [ case model of
+            Playing playingModel ->
+                ticks playingModel
 
-                        " " ->
-                            Json.Decode.succeed Space
+            _ ->
+                Sub.none
+        , Browser.Events.onKeyPress
+            (Json.Decode.field "key" Json.Decode.string
+                |> Json.Decode.andThen
+                    (\key ->
+                        case key of
+                            "Enter" ->
+                                Json.Decode.succeed Enter
 
-                        _ ->
-                            let
-                                _ =
-                                    Debug.log "Ignored" key
-                            in
-                            Json.Decode.fail "Ignored"
-                )
-        )
+                            " " ->
+                                Json.Decode.succeed Space
+
+                            _ ->
+                                let
+                                    _ =
+                                        Debug.log "Ignored" key
+                                in
+                                Json.Decode.fail "Ignored"
+                    )
+            )
+        ]
+
+
+ticks : PlayingModel -> Sub Msg
+ticks { score } =
+    let
+        -- Should tick every second at the beginning
+        initial : number
+        initial =
+            1000
+
+        -- Should get faster every 100 points
+        increases : Int
+        increases =
+            score // 100
+
+        interval : Int
+        interval =
+            initial * 9 ^ increases // (10 ^ increases)
+    in
+    Time.every (toFloat interval) Tick

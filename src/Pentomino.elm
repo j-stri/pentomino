@@ -127,4 +127,3 @@ list =
         ]
       )
     ]
-        |> List.map rotateCW

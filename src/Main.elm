@@ -261,12 +261,12 @@ layout =
             (1 + playingFieldWidth + 1)
             1
             rightPaneWidth
-            5
+            7
         , rect Theme.background
             (1 + playingFieldWidth + 1)
-            7
+            9
             rightPaneWidth
-            (playingFieldHeight - 6)
+            (playingFieldHeight - 8)
         ]
 
 

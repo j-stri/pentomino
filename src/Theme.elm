@@ -1,4 +1,4 @@
-module Theme exposing (Pentomino, coloredPentominos)
+module Theme exposing (Pentomino, background, coloredPentominos)
 
 
 type alias Pentomino =
@@ -149,3 +149,8 @@ pentominos =
         ]
       )
     ]
+
+
+background : String
+background =
+    "#333"

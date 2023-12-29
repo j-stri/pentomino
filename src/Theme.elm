@@ -1,18 +1,16 @@
-module Theme exposing (Pentomino, background, coloredPentominos)
+module Theme exposing (background, coloredPentominos)
+
+import Pentomino exposing (Pentomino)
 
 
-type alias Pentomino =
-    List (List Bool)
-
-
-coloredPentominos : List ( String, Pentomino )
+coloredPentominos : List Pentomino
 coloredPentominos =
     List.map2
         (\( _, color ) ( _, pentomino ) ->
             ( color, pentomino )
         )
         colors
-        pentominos
+        Pentomino.list
 
 
 colors : List ( String, String )
@@ -35,119 +33,6 @@ colors =
     , ( "Eridan Ampora", "#6a006a" )
     , ( "Roxy Lalonde", "#ff6ff2" )
     , ( "Feferi Peixes", "#77003c" )
-    ]
-
-
-pentominos : List ( String, Pentomino )
-pentominos =
-    [ ( "I", List.repeat 5 [ True ] )
-    , ( "F"
-      , [ [ False, True, True ]
-        , [ True, True, False ]
-        , [ False, True, False ]
-        ]
-      )
-    , ( "F'"
-      , [ [ True, True, False ]
-        , [ False, True, True ]
-        , [ False, True, False ]
-        ]
-      )
-    , ( "L"
-      , [ [ True, False ]
-        , [ True, False ]
-        , [ True, False ]
-        , [ True, True ]
-        ]
-      )
-    , ( "L'"
-      , [ [ False, True ]
-        , [ False, True ]
-        , [ False, True ]
-        , [ True, True ]
-        ]
-      )
-    , ( "N"
-      , [ [ False, True ]
-        , [ False, True ]
-        , [ True, True ]
-        , [ True, False ]
-        ]
-      )
-    , ( "N'"
-      , [ [ True, False ]
-        , [ True, False ]
-        , [ True, True ]
-        , [ False, True ]
-        ]
-      )
-    , ( "P"
-      , [ [ True, True ]
-        , [ True, True ]
-        , [ True, False ]
-        ]
-      )
-    , ( "P'"
-      , [ [ True, True ]
-        , [ True, True ]
-        , [ False, True ]
-        ]
-      )
-    , ( "T"
-      , [ [ True, True, True ]
-        , [ False, True, False ]
-        , [ False, True, False ]
-        ]
-      )
-    , ( "U"
-      , [ [ True, False, True ]
-        , [ True, True, True ]
-        ]
-      )
-    , ( "V"
-      , [ [ True, False, False ]
-        , [ True, False, False ]
-        , [ True, True, True ]
-        ]
-      )
-    , ( "W"
-      , [ [ True, False, False ]
-        , [ True, True, False ]
-        , [ False, True, True ]
-        ]
-      )
-    , ( "X"
-      , [ [ False, True, False ]
-        , [ True, True, True ]
-        , [ False, True, False ]
-        ]
-      )
-    , ( "Y"
-      , [ [ False, True ]
-        , [ True, True ]
-        , [ False, True ]
-        , [ False, True ]
-        ]
-      )
-    , ( "Y'"
-      , [ [ True, False ]
-        , [ True, True ]
-        , [ True, False ]
-        , [ True, False ]
-        ]
-      )
-    , ( "Z"
-      , [ [ False, True, True ]
-        , [ False, True, False ]
-        , [ True, True, False ]
-        ]
-      )
-    , ( "Z'"
-      , [ [ True, True, False ]
-        , [ False, True, False ]
-        , [ False, True, True ]
-        ]
-      )
     ]
 
 

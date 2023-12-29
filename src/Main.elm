@@ -5,10 +5,12 @@ import Browser.Events
 import Html exposing (Html, text)
 import Html.Attributes exposing (style)
 import Json.Decode
-import List.Extra
+import Pentomino exposing (Pentomino)
+import Random
+import Random.List
 import Svg exposing (Svg, text_)
 import Svg.Attributes exposing (alignmentBaseline, textAnchor, x, y)
-import Theme exposing (Pentomino)
+import Theme
 
 
 playingFieldWidth : number
@@ -48,16 +50,22 @@ type Model
 
 type alias PlayingModel =
     { pause : Bool
+    , nextPiece : Pentomino
+    , queue : List Pentomino
+    , grid : List (List String)
     }
 
 
 type alias LostModel =
-    {}
+    { nextPiece : Pentomino
+    , grid : List (List String)
+    }
 
 
 type Msg
     = Enter
     | Space
+    | Generated PlayingModel
 
 
 main : Program Flags Model Msg
@@ -65,7 +73,7 @@ main =
     Browser.element
         { init = \flags -> ( init flags, Cmd.none )
         , view = view
-        , update = \msg model -> ( update msg model, Cmd.none )
+        , update = update
         , subscriptions = subscriptions
         }
 
@@ -75,17 +83,47 @@ init _ =
     Welcome
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
         ( Enter, Welcome ) ->
-            Playing { pause = False }
+            ( model
+            , Random.generate Generated playingModelGenerator
+            )
+
+        ( Generated playingModel, _ ) ->
+            ( Playing playingModel, Cmd.none )
 
         ( Space, Playing playingModel ) ->
-            Playing { playingModel | pause = not playingModel.pause }
+            ( Playing { playingModel | pause = not playingModel.pause }, Cmd.none )
 
         _ ->
-            model
+            ( model, Cmd.none )
+
+
+playingModelGenerator : Random.Generator PlayingModel
+playingModelGenerator =
+    Random.map
+        (\( nextPiece, queue ) ->
+            { pause = False
+            , nextPiece = nextPiece
+            , queue = queue
+            , grid =
+                List.repeat playingFieldHeight
+                    (List.repeat playingFieldWidth "")
+            }
+        )
+        (Random.List.shuffle Theme.coloredPentominos
+            |> Random.map
+                (\list ->
+                    case list of
+                        [] ->
+                            Debug.todo "TODO"
+
+                        head :: tail ->
+                            ( head, tail )
+                )
+        )
 
 
 view : Model -> Html Msg
@@ -97,54 +135,12 @@ view model =
         , Html.Attributes.style "align-items" "center"
         , Html.Attributes.style "justify-content" "center"
         ]
-        [ Html.node "style" [] [ Html.text <| """
-            body {
-                margin: 0;
-                background: """ ++ Theme.background ++ """;
-                overflow: hidden;
-            }
-            """ ]
-        , [ Svg.style [] [ Svg.text <| """
-            text {
-                font: """ ++ coordinate 1 ++ """px sans-serif;
-                fill: white;
-            }
-            """ ]
-          , Svg.g []
-                [ rect "black"
-                    0
-                    0
-                    screenWidth
-                    screenHeight
-                , rect Theme.background
-                    1
-                    1
-                    playingFieldWidth
-                    playingFieldHeight
-                , rect Theme.background
-                    (1 + playingFieldWidth + 1)
-                    1
-                    rightPaneWidth
-                    playingFieldHeight
-                ]
-          , Svg.g []
-                (case model of
-                    Welcome ->
-                        viewWelcome
-
-                    Playing playingModel ->
-                        viewPlaying playingModel
-
-                    Lost lostModel ->
-                        viewLost lostModel
-                )
-          , Theme.coloredPentominos
-                |> List.reverse
-                |> List.head
-                |> Maybe.map List.singleton
-                |> Maybe.withDefault []
-                |> List.map (\( color, pentomino ) -> viewPentomino color 1 1 pentomino)
-                |> Svg.g []
+        [ Html.node "style" [] [ Html.text pageStyle ]
+        , [ layout
+          , backgroundGrid
+          , playingField model
+          , rightPane model
+          , overlay model
           ]
             |> Svg.svg
                 [ [ 0
@@ -163,6 +159,137 @@ view model =
                 , Svg.Attributes.fill "none"
                 ]
         ]
+
+
+rightPane : Model -> Svg Msg
+rightPane model =
+    case model of
+        Welcome ->
+            none
+
+        Playing { nextPiece } ->
+            viewNextPiece nextPiece
+
+        Lost { nextPiece } ->
+            viewNextPiece nextPiece
+
+
+viewNextPiece : Pentomino -> Svg Msg
+viewNextPiece pentomino =
+    viewPentomino (1 + playingFieldWidth + 1 + 1) 2 pentomino
+
+
+playingField : Model -> Svg Msg
+playingField model =
+    case model of
+        Welcome ->
+            none
+
+        Playing { grid } ->
+            viewGrid grid
+
+        Lost { grid } ->
+            viewGrid grid
+
+
+none : Svg Msg
+none =
+    Svg.g [] []
+
+
+viewGrid : List (List String) -> Svg Msg
+viewGrid rows =
+    let
+        viewRow : Int -> List String -> List (Svg msg)
+        viewRow y row =
+            row
+                |> List.indexedMap (viewGridCell y)
+                |> List.concat
+
+        viewGridCell : Int -> Int -> String -> List (Svg msg)
+        viewGridCell y x cell =
+            viewCell cell (toFloat x + 1) (toFloat y + 1) (cell /= "")
+    in
+    Svg.g [] <| List.concat <| List.indexedMap viewRow rows
+
+
+pageStyle : String
+pageStyle =
+    """
+    body {
+        margin: 0;
+        background: """ ++ Theme.background ++ """;
+        overflow: hidden;
+    }
+    
+    text {
+        font: """ ++ coordinate 1 ++ """px sans-serif;
+        fill: white;
+    }
+    """
+
+
+overlay : Model -> Svg Msg
+overlay model =
+    Svg.g []
+        (case model of
+            Welcome ->
+                viewWelcome
+
+            Playing playingModel ->
+                viewPlaying playingModel
+
+            Lost lostModel ->
+                viewLost lostModel
+        )
+
+
+layout : Svg Msg
+layout =
+    Svg.g []
+        [ rect "black"
+            0
+            0
+            screenWidth
+            screenHeight
+        , rect Theme.background
+            1
+            1
+            playingFieldWidth
+            playingFieldHeight
+        , rect Theme.background
+            (1 + playingFieldWidth + 1)
+            1
+            rightPaneWidth
+            5
+        , rect Theme.background
+            (1 + playingFieldWidth + 1)
+            7
+            rightPaneWidth
+            (playingFieldHeight - 6)
+        ]
+
+
+backgroundGrid : Svg Msg
+backgroundGrid =
+    let
+        horizontalRows : List (Svg msg)
+        horizontalRows =
+            List.map
+                (\y ->
+                    line "gray" 1 (playingFieldWidth + 1) (toFloat y) (toFloat y)
+                )
+                (List.range 1 (playingFieldHeight + 1))
+
+        verticalRows : List (Svg msg)
+        verticalRows =
+            List.map
+                (\x ->
+                    line "gray" (toFloat x) (toFloat x) 1 (playingFieldHeight + 1)
+                )
+                (List.range 1 (playingFieldWidth + 1))
+    in
+    Svg.g [] (horizontalRows ++ verticalRows)
 
 
 coordinate : Float -> String
@@ -196,27 +323,14 @@ rect color x y width height =
 
 viewWelcome : List (Svg msg)
 viewWelcome =
-    [ text_
-        [ textAnchor "middle"
-        , alignmentBaseline "middle"
-        , x <| coordinate (screenWidth / 2)
-        , y <| coordinate (screenHeight / 2)
-        ]
-        [ text "Welcome! Press <Enter> to begin!" ]
+    [ middleText "Welcome! Press <Enter> to begin!"
     ]
 
 
 viewPlaying : PlayingModel -> List (Svg msg)
 viewPlaying model =
     if model.pause then
-        [ text_
-            [ textAnchor "middle"
-            , alignmentBaseline "middle"
-            , x <| coordinate (screenWidth / 2)
-            , y <| coordinate (screenHeight / 2)
-            ]
-            [ text "Paused! Press <Space> to resume!"
-            ]
+        [ middleText "Paused! Press <Space> to resume!"
         ]
 
     else
@@ -225,47 +339,52 @@ viewPlaying model =
 
 viewLost : LostModel -> List (Svg msg)
 viewLost _ =
-    [ text_
+    [ middleText "Lost! Press <Enter> to restart!"
+    ]
+
+
+middleText : String -> Svg msg
+middleText content =
+    text_
         [ textAnchor "middle"
         , alignmentBaseline "middle"
         , x <| coordinate (screenWidth / 2)
         , y <| coordinate (screenHeight / 2)
         ]
-        [ text "Lost!" ]
-    ]
+        [ text content ]
 
 
-rotateCW : Pentomino -> Pentomino
-rotateCW pentomino =
-    pentomino
-        |> List.Extra.transpose
-        |> List.map List.reverse
-
-
-viewPentomino : String -> Float -> Float -> Pentomino -> Svg msg
-viewPentomino color dx dy pentomino =
+viewPentomino : Float -> Float -> Pentomino -> Svg msg
+viewPentomino dx dy ( color, pentomino ) =
     let
         viewRow : Int -> List Bool -> List (Svg msg)
         viewRow y row =
             row
-                |> List.indexedMap (viewCell (toFloat y))
+                |> List.indexedMap
+                    (\x ->
+                        viewCell color
+                            (toFloat x + dx)
+                            (toFloat y + dy)
+                    )
                 |> List.concat
-
-        border : Float
-        border =
-            0.05
-
-        viewCell : Float -> Int -> Bool -> List (Svg msg)
-        viewCell y x cell =
-            if cell then
-                [ rect "gray" (toFloat x + dx) (y + dy) 1 1
-                , rect color (toFloat x + dx + border) (y + dy + border) (1 - border * 2) (1 - border * 2)
-                ]
-
-            else
-                []
     in
     Svg.g [] <| List.concat <| List.indexedMap viewRow pentomino
+
+
+viewCell : String -> Float -> Float -> Bool -> List (Svg msg)
+viewCell color x y cell =
+    if cell then
+        let
+            border : Float
+            border =
+                0.05
+        in
+        [ rect "gray" x y 1 1
+        , rect color (x + border) (y + border) (1 - border * 2) (1 - border * 2)
+        ]
+
+    else
+        []
 
 
 subscriptions : Model -> Sub Msg

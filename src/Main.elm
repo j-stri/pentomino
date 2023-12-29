@@ -50,6 +50,7 @@ type Model
 
 type alias PlayingModel =
     { pause : Bool
+    , currentPiece : ( Int, Int, Pentomino )
     , nextPiece : Pentomino
     , queue : List Pentomino
     , grid : List (List String)
@@ -104,8 +105,23 @@ update msg model =
 playingModelGenerator : Random.Generator PlayingModel
 playingModelGenerator =
     Random.map
-        (\( nextPiece, queue ) ->
+        (\( currentPiece, nextPiece, queue ) ->
+            let
+                currentPieceWidth : Int
+                currentPieceWidth =
+                    currentPiece
+                        |> Tuple.second
+                        |> List.map List.length
+                        |> List.maximum
+                        |> Maybe.withDefault 1
+            in
             { pause = False
+            , currentPiece =
+                ( (playingFieldWidth - currentPieceWidth // 2)
+                    // 2
+                , 1
+                , currentPiece
+                )
             , nextPiece = nextPiece
             , queue = queue
             , grid =
@@ -117,13 +133,18 @@ playingModelGenerator =
             |> Random.map
                 (\list ->
                     case list of
-                        [] ->
-                            Debug.todo "TODO"
+                        one :: two :: tail ->
+                            ( one, two, tail )
 
-                        head :: tail ->
-                            ( head, tail )
+                        _ ->
+                            horribleHackPleaseForgive ()
                 )
         )
+
+
+horribleHackPleaseForgive : () -> a
+horribleHackPleaseForgive _ =
+    horribleHackPleaseForgive ()
 
 
 view : Model -> Html Msg
@@ -176,7 +197,7 @@ rightPane model =
 
 viewNextPiece : Pentomino -> Svg Msg
 viewNextPiece pentomino =
-    viewPentomino (1 + playingFieldWidth + 1 + 1) 2 pentomino
+    viewPentomino ( 1 + playingFieldWidth + 1 + 1, 2, pentomino )
 
 
 playingField : Model -> Svg Msg
@@ -185,11 +206,14 @@ playingField model =
         Welcome ->
             none
 
-        Playing { grid } ->
-            viewGrid grid
+        Playing { currentPiece, grid } ->
+            Svg.g []
+                [ viewPentomino currentPiece
+                , viewGrid grid
+                ]
 
         Lost { grid } ->
-            viewGrid grid
+            Svg.g [] [ viewGrid grid ]
 
 
 none : Svg Msg
@@ -208,7 +232,7 @@ viewGrid rows =
 
         viewGridCell : Int -> Int -> String -> List (Svg msg)
         viewGridCell y x cell =
-            viewCell cell (toFloat x + 1) (toFloat y + 1) (cell /= "")
+            viewCell cell (x + 1) (y + 1) (cell /= "")
     in
     Svg.g [] <| List.concat <| List.indexedMap viewRow rows
 
@@ -354,8 +378,8 @@ middleText content =
         [ text content ]
 
 
-viewPentomino : Float -> Float -> Pentomino -> Svg msg
-viewPentomino dx dy ( color, pentomino ) =
+viewPentomino : ( Int, Int, Pentomino ) -> Svg msg
+viewPentomino ( dx, dy, ( color, pentomino ) ) =
     let
         viewRow : Int -> List Bool -> List (Svg msg)
         viewRow y row =
@@ -363,24 +387,32 @@ viewPentomino dx dy ( color, pentomino ) =
                 |> List.indexedMap
                     (\x ->
                         viewCell color
-                            (toFloat x + dx)
-                            (toFloat y + dy)
+                            (x + dx)
+                            (y + dy)
                     )
                 |> List.concat
     in
     Svg.g [] <| List.concat <| List.indexedMap viewRow pentomino
 
 
-viewCell : String -> Float -> Float -> Bool -> List (Svg msg)
+viewCell : String -> Int -> Int -> Bool -> List (Svg msg)
 viewCell color x y cell =
     if cell then
         let
+            fx : Float
+            fx =
+                toFloat x
+
+            fy : Float
+            fy =
+                toFloat y
+
             border : Float
             border =
                 0.05
         in
-        [ rect "gray" x y 1 1
-        , rect color (x + border) (y + border) (1 - border * 2) (1 - border * 2)
+        [ rect "gray" fx fy 1 1
+        , rect color (fx + border) (fy + border) (1 - border * 2) (1 - border * 2)
         ]
 
     else

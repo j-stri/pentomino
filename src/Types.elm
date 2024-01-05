@@ -22,6 +22,7 @@ type alias PlayingModel =
     , queue : List Pentomino
     , grid : List (List Color)
     , seed : Random.Seed
+    , downArrowPressed : Bool
     }
 
 

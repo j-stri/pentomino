@@ -47,6 +47,13 @@ update msg model =
         ( KeyDown Pause, Playing playingModel ) ->
             ( Playing { playingModel | pause = not playingModel.pause }, Cmd.none )
 
+        ( KeyDown ArrowDown, Playing playingModel ) ->
+            ( Playing { playingModel | downArrowPressed = True }, Cmd.none )
+
+        ( KeyUp ArrowDown, Playing playingModel ) ->
+            ( Playing { playingModel | downArrowPressed = False }, Cmd.none )
+
+
         ( Tick, Playing playingModel ) ->
             if playingModel.pause then
                 ( model, Cmd.none )
@@ -348,6 +355,7 @@ playingModelGenerator =
             , queue = queue
             , grid = List.repeat playingFieldHeight emptyGridRow
             , seed = seed
+            , downArrowPressed = False
             }
         )
         Random.independentSeed
@@ -462,12 +470,20 @@ keyDecoder =
 
 
 ticks : PlayingModel -> Sub Msg
-ticks { score } =
+ticks { score, downArrowPressed } =
     let
         -- Should tick every second at the beginning
         initial : number
         initial =
             1000
+
+        downArrowMultiplier : Int
+        downArrowMultiplier =
+            if downArrowPressed then
+                8
+
+            else
+                1
 
         -- Should get faster every 100 points
         increases : Int
@@ -476,6 +492,6 @@ ticks { score } =
 
         interval : Int
         interval =
-            initial * 9 ^ increases // (10 ^ increases)
+            initial // downArrowMultiplier * 9 ^ increases // (10 ^ increases)
     in
     Time.every (toFloat interval) (\_ -> Tick)

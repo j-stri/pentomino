@@ -49,8 +49,64 @@ update msg model =
             else
                 ( Playing (moveDown playingModel), Cmd.none )
 
+        ( ArrowUp, Playing playingModel ) ->
+            if playingModel.pause then
+                ( model, Cmd.none )
+
+            else
+                ( Playing (rotateCW playingModel), Cmd.none )
+
+        ( ArrowLeft, Playing playingModel ) ->
+            ( Playing (moveUnlessCollides (Pentomino.moveLeft playingModel.currentPiece) playingModel)
+            , Cmd.none
+            )
+
+        ( ArrowRight, Playing playingModel ) ->
+            ( Playing (moveUnlessCollides (Pentomino.moveRight playingModel.currentPiece) playingModel)
+            , Cmd.none
+            )
+
         _ ->
             ( model, Cmd.none )
+
+
+rotateCW : PlayingModel -> PlayingModel
+rotateCW model =
+    let
+        (( rotatedX, rotatedY, rotatedPentomino ) as rotated) =
+            Pentomino.rotateCW model.currentPiece
+    in
+    if offBounds rotated then
+        let
+            movedInBounds : ( Int, Int, Pentomino )
+            movedInBounds =
+                if rotatedX < 0 then
+                    ( 0, rotatedY, rotatedPentomino )
+
+                else
+                    -- We want
+                    -- mvinbndX + Pentomino.width mvinbndPentomino == playingFieldWidth
+                    -- mvinbndX = playingFieldWidth - Pentomino.width mvinbndPentomino
+                    ( playingFieldWidth - Pentomino.width rotatedPentomino, rotatedY, rotatedPentomino )
+        in
+        moveUnlessCollides movedInBounds model
+
+    else
+        moveUnlessCollides rotated model
+
+
+moveUnlessCollides : ( Int, Int, Pentomino ) -> PlayingModel -> PlayingModel
+moveUnlessCollides newPiece model =
+    if offBounds newPiece || collides newPiece model.grid then
+        model
+
+    else
+        { model | currentPiece = newPiece }
+
+
+offBounds : ( Int, Int, Pentomino ) -> Bool
+offBounds ( x, _, pentomino ) =
+    x < 0 || x + Pentomino.width pentomino > playingFieldWidth
 
 
 moveDown : PlayingModel -> PlayingModel
@@ -170,13 +226,22 @@ subscriptions model =
 
             _ ->
                 Sub.none
-        , Browser.Events.onKeyPress
+        , Browser.Events.onKeyDown
             (Json.Decode.field "key" Json.Decode.string
                 |> Json.Decode.andThen
                     (\key ->
                         case key of
                             "Enter" ->
                                 Json.Decode.succeed Enter
+
+                            "ArrowLeft" ->
+                                Json.Decode.succeed ArrowLeft
+
+                            "ArrowUp" ->
+                                Json.Decode.succeed ArrowUp
+
+                            "ArrowRight" ->
+                                Json.Decode.succeed ArrowRight
 
                             " " ->
                                 Json.Decode.succeed Space

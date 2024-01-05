@@ -34,6 +34,9 @@ type alias LostModel =
 
 type Msg
     = Enter
+    | ArrowLeft
+    | ArrowRight
     | Space
     | Generated PlayingModel
     | Tick
+    | ArrowUp

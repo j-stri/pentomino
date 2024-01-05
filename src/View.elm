@@ -232,7 +232,7 @@ viewWelcome =
 viewPlaying : PlayingModel -> List (Svg msg)
 viewPlaying model =
     if model.pause then
-        [ middleText "Paused! Press <Space> to resume!"
+        [ middleText "Paused! Press \"p\" to resume!"
         ]
 
     else

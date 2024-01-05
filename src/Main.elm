@@ -3,7 +3,6 @@ module Main exposing (main)
 import Browser
 import Browser.Events
 import Constants exposing (playingFieldHeight, playingFieldWidth)
-import Html exposing (a)
 import Json.Decode
 import Pentomino exposing (Color, Pentomino)
 import Random
@@ -144,6 +143,7 @@ moveDown model =
             newGrid : List (List Color)
             newGrid =
                 writePentominoInGrid model
+                    |> removeFullLines
         in
         case model.queue of
             [] ->
@@ -159,6 +159,30 @@ moveDown model =
 
     else
         { model | currentPiece = moved }
+
+
+removeFullLines : List (List Color) -> List (List Color)
+removeFullLines grid =
+    let
+        newGrid : List (List Color)
+        newGrid =
+            List.filter
+                (\gridRow ->
+                    List.member "" gridRow
+                )
+                grid
+
+        newHeight : Int
+        newHeight =
+            List.length newGrid
+
+        newTop : List (List Color)
+        newTop =
+            List.repeat
+                (playingFieldHeight - newHeight)
+                emptyGridRow
+    in
+    newTop ++ newGrid
 
 
 writePentominoInGrid : PlayingModel -> List (List Color)
@@ -290,9 +314,7 @@ playingModelGenerator =
             , currentPiece = initialPentominoPosition currentPiece
             , nextPiece = nextPiece
             , queue = queue
-            , grid =
-                List.repeat playingFieldHeight
-                    (List.repeat playingFieldWidth "")
+            , grid = List.repeat playingFieldHeight emptyGridRow
             , seed = seed
             }
         )
@@ -308,6 +330,11 @@ playingModelGenerator =
                             horribleHackPleaseForgiveMe ()
                 )
         )
+
+
+emptyGridRow : List Color
+emptyGridRow =
+    List.repeat playingFieldWidth ""
 
 
 initialPentominoPosition : Pentomino -> ( Int, Int, Pentomino )

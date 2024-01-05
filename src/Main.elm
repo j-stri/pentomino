@@ -9,7 +9,7 @@ import Random
 import Random.List
 import Theme
 import Time
-import Types exposing (Flags, Key(..), Model(..), Msg(..), PlayingModel)
+import Types exposing (Flags, Key(..), LostModel, Model(..), Msg(..), PlayingModel)
 import View exposing (view)
 
 
@@ -36,6 +36,11 @@ update msg model =
             , Random.generate Generated playingModelGenerator
             )
 
+        ( KeyUp Enter, Lost _ ) ->
+            ( model
+            , Random.generate Generated playingModelGenerator
+            )
+
         ( Generated playingModel, _ ) ->
             ( Playing playingModel, Cmd.none )
 
@@ -47,7 +52,22 @@ update msg model =
                 ( model, Cmd.none )
 
             else
-                ( Playing (moveDown playingModel), Cmd.none )
+                let
+                    newModel : PlayingModel
+                    newModel =
+                        moveDown playingModel
+                in
+                if collides newModel.currentPiece newModel.grid then
+                    ( Lost
+                        { grid = newModel.grid
+                        , score = newModel.score
+                        , nextPiece = playingModel.nextPiece
+                        }
+                    , Cmd.none
+                    )
+
+                else
+                    ( Playing newModel, Cmd.none )
 
         ( KeyDown key, Playing playingModel ) ->
             if playingModel.pause then
@@ -143,19 +163,27 @@ moveDown model =
             ( newGrid, points ) =
                 writePentominoInGrid model
                     |> removeFullLines
-        in
-        case model.queue of
-            [] ->
-                Debug.todo "OHNOES"
 
-            newPiece :: newQueue ->
-                { model
+            step : Pentomino -> List Pentomino -> PlayingModel -> PlayingModel
+            step newPiece newQueue m =
+                { m
                     | grid = newGrid
                     , currentPiece = initialPentominoPosition model.nextPiece
                     , nextPiece = newPiece
                     , queue = newQueue
                     , score = model.score + points
                 }
+        in
+        case model.queue of
+            [] ->
+                let
+                    ( ( newPiece, queueHead, queueTail ), newSeed ) =
+                        Random.step queueGenerator model.seed
+                in
+                step newPiece (queueHead :: queueTail) { model | seed = newSeed }
+
+            newPiece :: newQueue ->
+                step newPiece newQueue model
 
     else
         { model | currentPiece = moved }
@@ -323,17 +351,21 @@ playingModelGenerator =
             }
         )
         Random.independentSeed
-        (Random.List.shuffle Theme.coloredPentominos
-            |> Random.map
-                (\list ->
-                    case list of
-                        one :: two :: tail ->
-                            ( one, two, tail )
+        queueGenerator
 
-                        _ ->
-                            horribleHackPleaseForgiveMe ()
-                )
-        )
+
+queueGenerator : Random.Generator ( Pentomino, Pentomino, List Pentomino )
+queueGenerator =
+    Random.List.shuffle Theme.coloredPentominos
+        |> Random.map
+            (\list ->
+                case list of
+                    one :: two :: tail ->
+                        ( one, two, tail )
+
+                    _ ->
+                        horribleHackPleaseForgiveMe ()
+            )
 
 
 emptyGridRow : List Color

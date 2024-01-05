@@ -105,11 +105,25 @@ rightPane model =
         Welcome ->
             none
 
-        Playing { nextPiece } ->
-            viewNextPiece nextPiece
+        Playing { nextPiece, score } ->
+            Svg.g []
+                [ viewNextPiece nextPiece
+                , viewScore score
+                ]
 
-        Lost { nextPiece } ->
-            viewNextPiece nextPiece
+        Lost { nextPiece, score } ->
+            Svg.g []
+                [ viewNextPiece nextPiece
+                , viewScore score
+                ]
+
+
+viewScore score =
+    text_
+        [ x <| coordinate (playingFieldWidth + 3)
+        , y <| coordinate 11
+        ]
+        [ text ("Score is " ++ String.fromInt score) ]
 
 
 viewNextPiece : Pentomino -> Svg msg
@@ -247,13 +261,27 @@ viewLost _ =
 
 middleText : String -> Svg msg
 middleText content =
-    text_
-        [ textAnchor "middle"
-        , alignmentBaseline "middle"
-        , x <| coordinate (screenWidth / 2)
-        , y <| coordinate (screenHeight / 2)
+    let
+        xcoord = coordinate (screenWidth / 2)
+        ycoord = coordinate (screenHeight / 2)
+
+        width = 25
+
+        height = 2
+
+
+    in
+    
+    Svg.g []
+        [ rect "gray" (screenWidth / 2 - width / 2) (screenHeight / 2 - height / 2 - 0.12) width height
+        , text_
+            [ textAnchor "middle"
+            , alignmentBaseline "middle"
+            , x <| xcoord
+            , y <| ycoord
+            ]
+            [ text content ]
         ]
-        [ text content ]
 
 
 viewPentomino : ( Int, Int, Pentomino ) -> Svg msg

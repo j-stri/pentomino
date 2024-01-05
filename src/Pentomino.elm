@@ -1,10 +1,14 @@
-module Pentomino exposing (Pentomino, list, rotateCW)
+module Pentomino exposing (Color, Pentomino, height, list, moveDown, moveRight, rotateCW, width)
 
 import List.Extra
 
 
+type alias Color =
+    String
+
+
 type alias Pentomino =
-    ( String, List (List Bool) )
+    ( Color, List (List Bool) )
 
 
 rotateCW : Pentomino -> Pentomino
@@ -14,6 +18,29 @@ rotateCW ( color, pentomino ) =
         |> List.Extra.transpose
         |> List.map List.reverse
     )
+
+
+height : Pentomino -> Int
+height ( _, pentomino ) =
+    List.length pentomino
+
+
+width : Pentomino -> Int
+width ( _, pentomino ) =
+    pentomino
+        |> List.map List.length
+        |> List.maximum
+        |> Maybe.withDefault 1
+
+
+moveRight : ( Int, Int, Pentomino ) -> ( Int, Int, Pentomino )
+moveRight ( x, y, pentomino ) =
+    ( x + 1, y, pentomino )
+
+
+moveDown : ( Int, Int, Pentomino ) -> ( Int, Int, Pentomino )
+moveDown ( x, y, pentomino ) =
+    ( x, y + 1, pentomino )
 
 
 list : List Pentomino

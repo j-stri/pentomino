@@ -140,8 +140,7 @@ moveDown model =
     in
     if collides moved model.grid then
         let
-            newGrid : List (List Color)
-            newGrid =
+            ( newGrid, points ) =
                 writePentominoInGrid model
                     |> removeFullLines
         in
@@ -155,13 +154,14 @@ moveDown model =
                     , currentPiece = initialPentominoPosition model.nextPiece
                     , nextPiece = newPiece
                     , queue = newQueue
+                    , score = model.score + points
                 }
 
     else
         { model | currentPiece = moved }
 
 
-removeFullLines : List (List Color) -> List (List Color)
+removeFullLines : List (List Color) -> ( List (List Color), Int )
 removeFullLines grid =
     let
         newGrid : List (List Color)
@@ -176,13 +176,17 @@ removeFullLines grid =
         newHeight =
             List.length newGrid
 
+        removed : Int
+        removed =
+            playingFieldHeight - newHeight
+
         newTop : List (List Color)
         newTop =
             List.repeat
-                (playingFieldHeight - newHeight)
+                removed
                 emptyGridRow
     in
-    newTop ++ newGrid
+    ( newTop ++ newGrid, removed * removed )
 
 
 writePentominoInGrid : PlayingModel -> List (List Color)

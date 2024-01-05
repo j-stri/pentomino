@@ -3,13 +3,14 @@ module Main exposing (main)
 import Browser
 import Browser.Events
 import Constants exposing (playingFieldHeight, playingFieldWidth)
+import Html exposing (a)
 import Json.Decode
 import Pentomino exposing (Color, Pentomino)
 import Random
 import Random.List
 import Theme
 import Time
-import Types exposing (Flags, Model(..), Msg(..), PlayingModel)
+import Types exposing (Flags, Key(..), Model(..), Msg(..), PlayingModel)
 import View exposing (view)
 
 
@@ -31,7 +32,7 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case ( msg, model ) of
-        ( Enter, Welcome ) ->
+        ( KeyUp Enter, Welcome ) ->
             ( model
             , Random.generate Generated playingModelGenerator
             )
@@ -39,7 +40,7 @@ update msg model =
         ( Generated playingModel, _ ) ->
             ( Playing playingModel, Cmd.none )
 
-        ( Space, Playing playingModel ) ->
+        ( KeyDown Pause, Playing playingModel ) ->
             ( Playing { playingModel | pause = not playingModel.pause }, Cmd.none )
 
         ( Tick, Playing playingModel ) ->
@@ -49,22 +50,44 @@ update msg model =
             else
                 ( Playing (moveDown playingModel), Cmd.none )
 
-        ( ArrowUp, Playing playingModel ) ->
+        ( KeyDown key, Playing playingModel ) ->
             if playingModel.pause then
                 ( model, Cmd.none )
 
             else
-                ( Playing (rotateCW playingModel), Cmd.none )
+                ( (case key of
+                    ArrowUp ->
+                        rotateCW playingModel
 
-        ( ArrowLeft, Playing playingModel ) ->
-            ( Playing (moveUnlessCollides (Pentomino.moveLeft playingModel.currentPiece) playingModel)
-            , Cmd.none
-            )
+                    ArrowLeft ->
+                        moveUnlessCollides (Pentomino.moveLeft playingModel.currentPiece) playingModel
 
-        ( ArrowRight, Playing playingModel ) ->
-            ( Playing (moveUnlessCollides (Pentomino.moveRight playingModel.currentPiece) playingModel)
-            , Cmd.none
-            )
+                    ArrowRight ->
+                        moveUnlessCollides (Pentomino.moveRight playingModel.currentPiece) playingModel
+
+                    Space ->
+                        let
+                            go : PlayingModel -> PlayingModel
+                            go m =
+                                let
+                                    new : PlayingModel
+                                    new =
+                                        moveDown m
+                                in
+                                if new.grid == m.grid then
+                                    go new
+
+                                else
+                                    m
+                        in
+                        go playingModel
+
+                    _ ->
+                        playingModel
+                  )
+                    |> Playing
+                , Cmd.none
+                )
 
         _ ->
             ( model, Cmd.none )
@@ -118,13 +141,99 @@ moveDown model =
     in
     if collides moved model.grid then
         let
-            _ =
-                Debug.todo
+            newGrid : List (List Color)
+            newGrid =
+                writePentominoInGrid model
         in
-        model
+        case model.queue of
+            [] ->
+                Debug.todo "OHNOES"
+
+            newPiece :: newQueue ->
+                { model
+                    | grid = newGrid
+                    , currentPiece = initialPentominoPosition model.nextPiece
+                    , nextPiece = newPiece
+                    , queue = newQueue
+                }
 
     else
         { model | currentPiece = moved }
+
+
+writePentominoInGrid : PlayingModel -> List (List Color)
+writePentominoInGrid model =
+    let
+        ( pentominoX, pentominoY, ( pentominoColor, pentominoShape ) ) =
+            model.currentPiece
+    in
+    List.foldl
+        (\gridRow state ->
+            if state.y < pentominoY then
+                { inProgressGrid = gridRow :: state.inProgressGrid
+                , y = state.y + 1
+                , pentominoShape = state.pentominoShape
+                }
+
+            else
+                case state.pentominoShape of
+                    [] ->
+                        { inProgressGrid = gridRow :: state.inProgressGrid
+                        , y = state.y + 1
+                        , pentominoShape = state.pentominoShape
+                        }
+
+                    firstPentominoRow :: restOfThePentomino ->
+                        let
+                            newRow : List Color
+                            newRow =
+                                List.foldl
+                                    (\gridCell innerState ->
+                                        if innerState.x < pentominoX then
+                                            { inProgressRow = gridCell :: innerState.inProgressRow
+                                            , x = innerState.x + 1
+                                            , pentominoRow = innerState.pentominoRow
+                                            }
+
+                                        else
+                                            case innerState.pentominoRow of
+                                                [] ->
+                                                    { inProgressRow = gridCell :: innerState.inProgressRow
+                                                    , x = innerState.x + 1
+                                                    , pentominoRow = innerState.pentominoRow
+                                                    }
+
+                                                pentominoHead :: pentominoTail ->
+                                                    { inProgressRow =
+                                                        (if pentominoHead then
+                                                            pentominoColor
+
+                                                         else
+                                                            gridCell
+                                                        )
+                                                            :: innerState.inProgressRow
+                                                    , x = innerState.x + 1
+                                                    , pentominoRow = pentominoTail
+                                                    }
+                                    )
+                                    { inProgressRow = []
+                                    , x = 0
+                                    , pentominoRow = firstPentominoRow
+                                    }
+                                    gridRow
+                                    |> (\innerState -> List.reverse innerState.inProgressRow)
+                        in
+                        { inProgressGrid = newRow :: state.inProgressGrid
+                        , y = state.y + 1
+                        , pentominoShape = restOfThePentomino
+                        }
+        )
+        { inProgressGrid = []
+        , y = 0
+        , pentominoShape = pentominoShape
+        }
+        model.grid
+        |> (\state -> List.reverse state.inProgressGrid)
 
 
 collides : ( Int, Int, Pentomino ) -> List (List Color) -> Bool
@@ -176,20 +285,9 @@ playingModelGenerator : Random.Generator PlayingModel
 playingModelGenerator =
     Random.map2
         (\seed ( currentPiece, nextPiece, queue ) ->
-            let
-                currentPieceWidth : Int
-                currentPieceWidth =
-                    Pentomino.width currentPiece
-            in
             { pause = False
             , score = 0
-            , currentPiece =
-                ( (playingFieldWidth - currentPieceWidth // 2)
-                    // 2
-                    - 1
-                , 0
-                , currentPiece
-                )
+            , currentPiece = initialPentominoPosition currentPiece
             , nextPiece = nextPiece
             , queue = queue
             , grid =
@@ -212,6 +310,21 @@ playingModelGenerator =
         )
 
 
+initialPentominoPosition : Pentomino -> ( Int, Int, Pentomino )
+initialPentominoPosition currentPiece =
+    let
+        currentPieceWidth : Int
+        currentPieceWidth =
+            Pentomino.width currentPiece
+    in
+    ( (playingFieldWidth - currentPieceWidth // 2)
+        // 2
+        - 1
+    , 0
+    , currentPiece
+    )
+
+
 horribleHackPleaseForgiveMe : () -> a
 horribleHackPleaseForgiveMe _ =
     horribleHackPleaseForgiveMe ()
@@ -227,34 +340,50 @@ subscriptions model =
             _ ->
                 Sub.none
         , Browser.Events.onKeyDown
-            (Json.Decode.field "key" Json.Decode.string
-                |> Json.Decode.andThen
-                    (\key ->
-                        case key of
-                            "Enter" ->
-                                Json.Decode.succeed Enter
-
-                            "ArrowLeft" ->
-                                Json.Decode.succeed ArrowLeft
-
-                            "ArrowUp" ->
-                                Json.Decode.succeed ArrowUp
-
-                            "ArrowRight" ->
-                                Json.Decode.succeed ArrowRight
-
-                            " " ->
-                                Json.Decode.succeed Space
-
-                            _ ->
-                                let
-                                    _ =
-                                        Debug.log "Ignored" key
-                                in
-                                Json.Decode.fail "Ignored"
-                    )
+            (keyDecoder
+                |> Json.Decode.map KeyDown
+            )
+        , Browser.Events.onKeyUp
+            (keyDecoder
+                |> Json.Decode.map KeyUp
             )
         ]
+
+
+keyDecoder : Json.Decode.Decoder Key
+keyDecoder =
+    Json.Decode.field "key" Json.Decode.string
+        |> Json.Decode.andThen
+            (\key ->
+                case key of
+                    "Enter" ->
+                        Json.Decode.succeed Enter
+
+                    "ArrowLeft" ->
+                        Json.Decode.succeed ArrowLeft
+
+                    "ArrowUp" ->
+                        Json.Decode.succeed ArrowUp
+
+                    "ArrowDown" ->
+                        Json.Decode.succeed ArrowDown
+
+                    "ArrowRight" ->
+                        Json.Decode.succeed ArrowRight
+
+                    " " ->
+                        Json.Decode.succeed Space
+
+                    "p" ->
+                        Json.Decode.succeed Pause
+
+                    _ ->
+                        let
+                            _ =
+                                Debug.log "Ignored" key
+                        in
+                        Json.Decode.fail "Ignored"
+            )
 
 
 ticks : PlayingModel -> Sub Msg

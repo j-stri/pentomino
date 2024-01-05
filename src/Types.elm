@@ -1,4 +1,4 @@
-module Types exposing (Flags, LostModel, Model(..), Msg(..), PlayingModel)
+module Types exposing (Flags, Key(..), LostModel, Model(..), Msg(..), PlayingModel)
 
 import Pentomino exposing (Color, Pentomino)
 import Random
@@ -33,10 +33,17 @@ type alias LostModel =
 
 
 type Msg
+    = KeyDown Key
+    | KeyUp Key
+    | Generated PlayingModel
+    | Tick
+
+
+type Key
     = Enter
     | ArrowLeft
     | ArrowRight
-    | Space
-    | Generated PlayingModel
-    | Tick
     | ArrowUp
+    | ArrowDown
+    | Space
+    | Pause

@@ -434,6 +434,18 @@ keyDecoder =
                     "ArrowRight" ->
                         Json.Decode.succeed ArrowRight
 
+                    "a" ->
+                        Json.Decode.succeed ArrowLeft
+
+                    "w" ->
+                        Json.Decode.succeed ArrowUp
+
+                    "s" ->
+                        Json.Decode.succeed ArrowDown
+
+                    "d" ->
+                        Json.Decode.succeed ArrowRight
+
                     " " ->
                         Json.Decode.succeed Space
 

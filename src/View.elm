@@ -118,6 +118,7 @@ rightPane model =
                 ]
 
 
+viewScore : Int -> Svg msg
 viewScore score =
     text_
         [ x <| coordinate (playingFieldWidth + 3)
@@ -262,23 +263,29 @@ viewLost _ =
 middleText : String -> Svg msg
 middleText content =
     let
-        xcoord = coordinate (screenWidth / 2)
-        ycoord = coordinate (screenHeight / 2)
+        xcoord : String
+        xcoord =
+            coordinate (screenWidth / 2)
 
-        width = 25
+        ycoord : String
+        ycoord =
+            coordinate (screenHeight / 2)
 
-        height = 2
+        width : Float
+        width =
+            25
 
-
+        height : Float
+        height =
+            2
     in
-    
     Svg.g []
         [ rect "gray" (screenWidth / 2 - width / 2) (screenHeight / 2 - height / 2 - 0.12) width height
         , text_
             [ textAnchor "middle"
             , alignmentBaseline "middle"
-            , x <| xcoord
-            , y <| ycoord
+            , x xcoord
+            , y ycoord
             ]
             [ text content ]
         ]

@@ -38,4 +38,4 @@ colors =
 
 background : String
 background =
-    "#333"
+    "#323232"

@@ -41,6 +41,15 @@ update msg model =
             , Random.generate Generated playingModelGenerator
             )
 
+        ( KeyUp Enter, Playing playingModel ) ->
+            if playingModel.pause then
+                ( model
+                , Random.generate Generated playingModelGenerator
+                )
+
+            else
+                ( model, Cmd.none )
+
         ( Generated playingModel, _ ) ->
             ( Playing playingModel, Cmd.none )
 
@@ -52,7 +61,6 @@ update msg model =
 
         ( KeyUp ArrowDown, Playing playingModel ) ->
             ( Playing { playingModel | downArrowPressed = False }, Cmd.none )
-
 
         ( Tick, Playing playingModel ) ->
             if playingModel.pause then

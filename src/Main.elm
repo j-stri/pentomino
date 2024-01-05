@@ -9,7 +9,7 @@ import Random
 import Random.List
 import Theme
 import Time
-import Types exposing (Flags, Key(..), LostModel, Model(..), Msg(..), PlayingModel)
+import Types exposing (Flags, Key(..), Model(..), Msg(..), PlayingModel)
 import View exposing (view)
 
 

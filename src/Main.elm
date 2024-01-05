@@ -72,7 +72,7 @@ moveDown model =
 
 
 collides : ( Int, Int, Pentomino ) -> List (List Color) -> Bool
-collides ( x, y, pentomino ) grid =
+collides ( x, y, ( _, pentominoShape ) as pentomino ) grid =
     let
         pentominoWidth : Int
         pentominoWidth =
@@ -93,17 +93,27 @@ collides ( x, y, pentomino ) grid =
                             |> List.drop x
                             |> List.take pentominoWidth
                     )
+
+        any2 : (a -> b -> Bool) -> List a -> List b -> Bool
+        any2 f a b =
+            List.any identity (List.map2 f a b)
     in
     if List.length gridSlice < pentominoHeight then
         -- Pentomino got offscreen at the bottom
         True
 
     else
-        let
-            _ =
-                Debug.todo
-        in
-        False
+        any2
+            (\gridRow pentominoRow ->
+                any2
+                    (\gridCell pentominoCell ->
+                        pentominoCell && (gridCell /= "")
+                    )
+                    gridRow
+                    pentominoRow
+            )
+            gridSlice
+            pentominoShape
 
 
 playingModelGenerator : Random.Generator PlayingModel
